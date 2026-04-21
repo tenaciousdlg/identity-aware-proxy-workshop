@@ -42,7 +42,7 @@ kind create cluster --name workshop
 
 **Docker Desktop:** Enable Kubernetes in Docker Desktop preferences. No extra setup needed.
 
-**EKS or other cloud cluster:** Any standard cluster works. For the Envoy service you will need a LoadBalancer or ingress instead of the NodePort option described below.
+**EKS or other cloud cluster:** Any standard cluster works. The lab uses `kubectl port-forward` to reach Envoy, so no LoadBalancer or ingress is required.
 
 ---
 
@@ -122,10 +122,6 @@ helm install bob-app    helm/bob-app
 ### Step 4: Deploy Envoy
 
 ```bash
-# kind / Docker Desktop — expose via NodePort so curl can reach it from your laptop
-helm install envoy helm/envoy --set nodePort.enabled=true
-
-# EKS / cloud — use ClusterIP and port-forward instead
 helm install envoy helm/envoy
 kubectl port-forward svc/envoy 8080:8080 &
 ```
@@ -294,8 +290,8 @@ The pattern is identical: intercept the connection, validate the JWT, enforce id
 | `keycloak.realm` | `demo` | Keycloak realm name |
 | `keycloak.host` | `keycloak` | Cluster DNS name for JWKS upstream |
 | `keycloak.port` | `8180` | Keycloak service port |
-| `nodePort.enabled` | `false` | Set `true` for kind/Docker Desktop |
-| `nodePort.port` | `30080` | NodePort value (30000–32767) |
+| `nodePort.enabled` | `false` | Optional NodePort exposure (not needed for the workshop) |
+| `nodePort.port` | `30080` | NodePort value if enabled (30000–32767) |
 
 ### Postgres chart (`helm/postgres/values.yaml`)
 
