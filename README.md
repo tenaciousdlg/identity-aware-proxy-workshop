@@ -2,8 +2,6 @@
 
 A hands-on workshop demonstrating how reverse proxies enforce identity-based access control using JWT tokens — without modifying application code.
 
-> **KubeCon Workshop — Friday 15 May 2026, 1:15–2:45 pm (90 min)**
-
 ---
 
 ## Architecture
