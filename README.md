@@ -132,7 +132,7 @@ helm install envoy helm/envoy --set nodePort.enabled=true
 
 # EKS / cloud — use ClusterIP and port-forward instead
 helm install envoy helm/envoy
-kubectl port-forward svc/envoy-envoy 8080:8080 &
+kubectl port-forward svc/envoy 8080:8080 &
 ```
 
 ---
@@ -313,6 +313,35 @@ The pattern is identical: intercept the connection, validate the JWT, enforce id
 | `keycloak.issuer` | `""` | Optional `iss` claim validation |
 | `proxy.roleClaim` | `preferred_username` | JWT claim mapped to Postgres role |
 | `postgres.port` | `5433` | Internal Postgres port (proxy owns 5432) |
+
+---
+
+## Automated Testing
+
+### Smoke test (local)
+
+After completing Lab Setup, verify everything is working in one command:
+
+```bash
+# Sets up port-forwards, runs all assertions, cleans up
+PORT_FORWARD=true bash scripts/smoke-test.sh
+```
+
+Or if you already have port-forwards running:
+```bash
+bash scripts/smoke-test.sh
+```
+
+The script tests JWT authentication (401 without token), RBAC enforcement (200/403 per identity and path), and that the app receives the forwarded JWT payload. It prints a pass/fail line per assertion and exits non-zero on any failure.
+
+### CI (GitHub Actions)
+
+Every push and pull request runs two jobs automatically:
+
+| Job | What it checks |
+|-----|----------------|
+| `lint` | `helm lint` all charts + `go build` + `go vet` on the proxy |
+| `e2e` | Spins up a kind cluster, deploys the full stack, runs the smoke test |
 
 ---
 
