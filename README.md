@@ -54,6 +54,9 @@ kind create cluster --name workshop
 │   ├── public-app/       # Node.js: responds to any authenticated user
 │   ├── alice-app/        # Node.js: alice's private service (port 3002)
 │   └── bob-app/          # Node.js: bob's private service (port 3001)
+├── docs/
+│   ├── architecture.excalidraw  # editable diagram source
+│   └── architecture.png         # exported for README and slides
 ├── postgres-proxy/       # Go wire-protocol JWT proxy
 │   ├── main.go
 │   ├── go.mod
