@@ -61,6 +61,8 @@ kind create cluster --name workshop
 │   ├── main.go
 │   ├── go.mod
 │   └── Dockerfile
+├── scripts/
+│   └── smoke-test.sh     # local and CI smoke test
 └── helm/
     ├── keycloak/         # Plain k8s manifest — Keycloak + demo realm
     ├── public-app/       # Helm chart
@@ -299,7 +301,7 @@ The pattern is identical: intercept the connection, validate the JWT, enforce id
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `image.proxy.repository` | `""` | **Required**: image built from `postgres-proxy/` |
+| `image.proxy.repository` | `ghcr.io/tenaciousdlg/pg-jwt-proxy` | Pre-built proxy image; override to use your own |
 | `keycloak.url` | `http://keycloak:8180` | Used by init container to fetch JWKS |
 | `keycloak.issuer` | `""` | Optional `iss` claim validation |
 | `proxy.roleClaim` | `preferred_username` | JWT claim mapped to Postgres role |
@@ -359,5 +361,5 @@ The PVC has data from a previous run. Reset:
 ```bash
 kubectl scale deployment/db-postgres-jwt --replicas=0
 kubectl delete pvc db-postgres-jwt-data
-helm upgrade db helm/postgres --set image.proxy.repository=...
+helm upgrade db helm/postgres
 ```
