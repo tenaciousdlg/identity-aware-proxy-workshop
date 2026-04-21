@@ -104,8 +104,8 @@ assert_http "alice → /bob → 403"   "403" -H "Authorization: Bearer $ALICE_TO
 # ── JWT payload forwarded to app ─────────────────────────────────────────────
 info "Testing x-jwt-payload forwarded to app..."
 RESPONSE=$(curl -s -H "Authorization: Bearer $ALICE_TOKEN" "$ENVOY_URL/public")
-if echo "$RESPONSE" | jq -e '.user // .username // .identity' -r 2>/dev/null | grep -qi "alice"; then
-  pass "alice identity visible in app response"
+if echo "$RESPONSE" | jq -e '.jwt_claims.username' -r 2>/dev/null | grep -qi "alice"; then
+  pass "alice identity visible in app response (jwt_claims.username)"
 else
   fail "alice identity not found in app response (got: $RESPONSE)"
 fi
