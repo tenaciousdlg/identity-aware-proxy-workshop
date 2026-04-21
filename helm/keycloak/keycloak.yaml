@@ -119,6 +119,15 @@ spec:
               value: admin
             - name: KC_HTTP_PORT
               value: "8180"
+            # Lock the issuer URL to the cluster-internal service name.
+            # Without this, Keycloak derives iss from the request Host header,
+            # so tokens fetched via port-forward (localhost) get a different
+            # issuer than Envoy expects (keycloak:8180). This makes iss
+            # consistent regardless of how clients reach Keycloak.
+            - name: KC_HOSTNAME_URL
+              value: "http://keycloak:8180"
+            - name: KC_HOSTNAME_ADMIN_URL
+              value: "http://keycloak:8180"
           ports:
             - name: http
               containerPort: 8180
