@@ -3,10 +3,8 @@ image:
     repository: postgres
     tag: "16-alpine"
     pullPolicy: IfNotPresent
-  # Custom wire-protocol proxy — build from postgres-proxy/ and push to your registry
-  # docker build -t <registry>/pg-jwt-proxy:latest ./postgres-proxy && docker push <registry>/pg-jwt-proxy:latest
   proxy:
-    repository: ""
+    repository: ghcr.io/tenaciousdlg/pg-jwt-proxy
     tag: "latest"
     pullPolicy: IfNotPresent
   # Init container that fetches Keycloak's JWKS — proxy reads it on startup

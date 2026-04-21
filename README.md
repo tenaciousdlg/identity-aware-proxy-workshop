@@ -74,34 +74,27 @@ kind create cluster --name workshop
 
 ## Lab Setup
 
-### Step 1: Build images
+### Step 1: Images
 
-**Option A — kind (no registry required):**
+Pre-built images are published to `ghcr.io/tenaciousdlg/` on every commit to `main` and are set as defaults in each chart — no build step required for most attendees.
+
+**To use pre-built images (recommended):** skip this step entirely and proceed to Step 2.
+
+**To build your own** (if you've modified the app source):
 ```bash
-docker build -t public-app:latest  ./apps/public-app
-docker build -t alice-app:latest   ./apps/alice-app
-docker build -t bob-app:latest     ./apps/bob-app
+# kind — load directly, no registry needed
+docker build -t public-app:latest   ./apps/public-app
+docker build -t alice-app:latest    ./apps/alice-app
+docker build -t bob-app:latest      ./apps/bob-app
 docker build -t pg-jwt-proxy:latest ./postgres-proxy
 
 kind load docker-image public-app:latest   --name workshop
 kind load docker-image alice-app:latest    --name workshop
 kind load docker-image bob-app:latest      --name workshop
 kind load docker-image pg-jwt-proxy:latest --name workshop
-```
 
-Then install using the local image names (no registry prefix needed):
-```bash
-REGISTRY=""   # empty — images are already in the cluster
-```
-
-**Option B — external registry (EKS / cloud clusters):**
-```bash
-REGISTRY=<your-registry>   # e.g. ghcr.io/youruser or docker.io/youruser
-
-docker build -t $REGISTRY/public-app:latest   ./apps/public-app   && docker push $REGISTRY/public-app:latest
-docker build -t $REGISTRY/alice-app:latest    ./apps/alice-app    && docker push $REGISTRY/alice-app:latest
-docker build -t $REGISTRY/bob-app:latest      ./apps/bob-app      && docker push $REGISTRY/bob-app:latest
-docker build -t $REGISTRY/pg-jwt-proxy:latest ./postgres-proxy    && docker push $REGISTRY/pg-jwt-proxy:latest
+# Then override the image on install:
+# helm install public-app helm/public-app --set image.repository=public-app --set image.pullPolicy=Never
 ```
 
 ### Step 2: Deploy Keycloak
@@ -119,9 +112,9 @@ Keycloak is pre-configured with:
 ### Step 3: Deploy the backend apps
 
 ```bash
-helm install public-app helm/public-app --set image.repository=${REGISTRY:+$REGISTRY/}public-app
-helm install alice-app  helm/alice-app  --set image.repository=${REGISTRY:+$REGISTRY/}alice-app
-helm install bob-app    helm/bob-app    --set image.repository=${REGISTRY:+$REGISTRY/}bob-app
+helm install public-app helm/public-app
+helm install alice-app  helm/alice-app
+helm install bob-app    helm/bob-app
 ```
 
 ### Step 4: Deploy Envoy
@@ -248,9 +241,7 @@ The Postgres chart deploys a sidecar proxy that accepts standard `psql` connecti
 ### Deploy
 
 ```bash
-helm install db helm/postgres \
-  --set image.proxy.repository=${REGISTRY:+$REGISTRY/}pg-jwt-proxy \
-  --set keycloak.url=http://keycloak:8180
+helm install db helm/postgres
 ```
 
 ### Test

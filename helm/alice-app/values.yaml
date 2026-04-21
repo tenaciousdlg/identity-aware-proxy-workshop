@@ -1,9 +1,7 @@
 replicaCount: 1
 
 image:
-  # Build from alice-app/Dockerfile and push to your registry
-  # e.g.: docker build -t myregistry/alice-app:latest ./apps/alice-app && docker push myregistry/alice-app:latest
-  repository: ""
+  repository: ghcr.io/tenaciousdlg/alice-app
   tag: "latest"
   pullPolicy: IfNotPresent
 

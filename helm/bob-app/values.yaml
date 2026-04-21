@@ -1,9 +1,7 @@
 replicaCount: 1
 
 image:
-  # Build from bob-app/Dockerfile and push to your registry
-  # e.g.: docker build -t myregistry/bob-app:latest ./apps/bob-app && docker push myregistry/bob-app:latest
-  repository: ""
+  repository: ghcr.io/tenaciousdlg/bob-app
   tag: "latest"
   pullPolicy: IfNotPresent
 

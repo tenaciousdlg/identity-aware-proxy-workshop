@@ -1,0 +1,25 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Go binaries
+postgres-proxy/pg-jwt-proxy
+
+# macOS
+.DS_Store
+
+# Environment files
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Helm
+*.tgz
+charts/
+
+# Kind / kubeconfig
+kubeconfig*

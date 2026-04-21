@@ -1,9 +1,7 @@
 replicaCount: 1
 
 image:
-  # Build from public-app/Dockerfile and push to your registry
-  # e.g.: docker build -t myregistry/public-app:latest ./public-app && docker push myregistry/public-app:latest
-  repository: ""
+  repository: ghcr.io/tenaciousdlg/public-app
   tag: "latest"
   pullPolicy: IfNotPresent
 
