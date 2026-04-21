@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "postgres-jwt.fullname" . }}
+  labels:
+    {{- include "postgres-jwt.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    # Standard Postgres wire protocol — clients connect here with JWT as the password.
+    # The raw Postgres port is intentionally NOT exposed (pg_hba.conf blocks it anyway).
+    - name: postgres
+      port: {{ .Values.service.port }}
+      targetPort: postgres
+      protocol: TCP
+  selector:
+    {{- include "postgres-jwt.selectorLabels" . | nindent 4 }}

@@ -1,0 +1,25 @@
+replicaCount: 1
+
+image:
+  # Build from alice-app/Dockerfile and push to your registry
+  # e.g.: docker build -t myregistry/alice-app:latest ./apps/alice-app && docker push myregistry/alice-app:latest
+  repository: ""
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+app:
+  # Matches SERVICE_NAME env var read by server.js
+  serviceName: "alice-app"
+  port: 3002
+
+service:
+  # ClusterIP so Envoy routes to this pod internally
+  # Change to NodePort or LoadBalancer to expose directly (bypasses JWT auth — demo only)
+  type: ClusterIP
+  port: 3002
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

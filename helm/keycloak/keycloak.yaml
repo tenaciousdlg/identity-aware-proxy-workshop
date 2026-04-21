@@ -1,0 +1,151 @@
+---
+# Minimal Keycloak deployment for local testing.
+# Pre-loads the demo realm (alice, bob, demo-client) on startup.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm
+data:
+  realm.json: |
+    {
+      "realm": "demo",
+      "enabled": true,
+      "sslRequired": "none",
+      "registrationAllowed": false,
+      "loginWithEmailAllowed": true,
+      "accessTokenLifespan": 900,
+      "roles": {
+        "realm": [
+          {"name": "user", "description": "Regular user role", "composite": false, "clientRole": false},
+          {"name": "admin", "description": "Administrator role", "composite": false, "clientRole": false}
+        ]
+      },
+      "users": [
+        {
+          "username": "alice", "enabled": true, "emailVerified": true,
+          "email": "alice@demo.local", "firstName": "Alice", "lastName": "User",
+          "credentials": [{"type": "password", "value": "password", "temporary": false}],
+          "realmRoles": ["user"]
+        },
+        {
+          "username": "bob", "enabled": true, "emailVerified": true,
+          "email": "bob@demo.local", "firstName": "Bob", "lastName": "Admin",
+          "credentials": [{"type": "password", "value": "password", "temporary": false}],
+          "realmRoles": ["user", "admin"]
+        }
+      ],
+      "clients": [
+        {
+          "clientId": "demo-client", "enabled": true, "publicClient": true,
+          "directAccessGrantsEnabled": true, "standardFlowEnabled": true,
+          "protocol": "openid-connect", "fullScopeAllowed": true,
+          "redirectUris": ["*"], "webOrigins": ["*"],
+          "defaultClientScopes": ["web-origins", "profile", "roles", "email"],
+          "attributes": {"access.token.lifespan": "900"}
+        }
+      ],
+      "clientScopes": [
+        {
+          "name": "roles", "protocol": "openid-connect",
+          "attributes": {"include.in.token.scope": "true"},
+          "protocolMappers": [
+            {
+              "name": "realm roles", "protocol": "openid-connect",
+              "protocolMapper": "oidc-usermodel-realm-role-mapper",
+              "consentRequired": false,
+              "config": {
+                "multivalued": "true", "userinfo.token.claim": "true",
+                "id.token.claim": "true", "access.token.claim": "true",
+                "claim.name": "realm_access.roles", "jsonType.label": "String"
+              }
+            }
+          ]
+        },
+        {
+          "name": "profile", "protocol": "openid-connect",
+          "attributes": {"include.in.token.scope": "true"},
+          "protocolMappers": [
+            {
+              "name": "username", "protocol": "openid-connect",
+              "protocolMapper": "oidc-usermodel-property-mapper", "consentRequired": false,
+              "config": {
+                "userinfo.token.claim": "true", "user.attribute": "username",
+                "id.token.claim": "true", "access.token.claim": "true",
+                "claim.name": "preferred_username", "jsonType.label": "String"
+              }
+            }
+          ]
+        },
+        {
+          "name": "email", "protocol": "openid-connect",
+          "attributes": {"include.in.token.scope": "true"},
+          "protocolMappers": [
+            {
+              "name": "email", "protocol": "openid-connect",
+              "protocolMapper": "oidc-usermodel-property-mapper", "consentRequired": false,
+              "config": {
+                "userinfo.token.claim": "true", "user.attribute": "email",
+                "id.token.claim": "true", "access.token.claim": "true",
+                "claim.name": "email", "jsonType.label": "String"
+              }
+            }
+          ]
+        }
+      ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:23.0
+          args: ["start-dev", "--import-realm"]
+          env:
+            - name: KEYCLOAK_ADMIN
+              value: admin
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              value: admin
+            - name: KC_HTTP_PORT
+              value: "8180"
+          ports:
+            - name: http
+              containerPort: 8180
+          readinessProbe:
+            httpGet:
+              path: /realms/demo
+              port: 8180
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 10
+          volumeMounts:
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+      volumes:
+        - name: realm
+          configMap:
+            name: keycloak-realm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8180
+      targetPort: http
+      name: http
+  selector:
+    app: keycloak

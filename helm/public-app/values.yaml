@@ -1,0 +1,25 @@
+replicaCount: 1
+
+image:
+  # Build from public-app/Dockerfile and push to your registry
+  # e.g.: docker build -t myregistry/public-app:latest ./public-app && docker push myregistry/public-app:latest
+  repository: ""
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+app:
+  # Matches SERVICE_NAME env var read by server.js
+  serviceName: "public-app"
+  port: 3000
+
+service:
+  # ClusterIP so Envoy routes to this pod internally
+  # Change to NodePort or LoadBalancer to expose directly (bypasses JWT auth — demo only)
+  type: ClusterIP
+  port: 3000
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: public-app
+description: Identity-aware Node.js app that reads JWT assertions forwarded by a reverse proxy (e.g. Envoy)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - jwt
+  - oidc
+  - envoy
+  - zero-trust

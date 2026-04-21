@@ -1,0 +1,45 @@
+replicaCount: 1
+
+image:
+  repository: envoyproxy/envoy
+  tag: "v1.29.0"
+  pullPolicy: IfNotPresent
+
+# Keycloak connection — must match the URL clients used to obtain tokens (issuer claim)
+keycloak:
+  # Full URL used as the JWT issuer (iss claim) and for JWKS path construction
+  url: "http://keycloak:8180"
+  realm: "demo"
+  # Internal cluster DNS name and port for the Envoy upstream cluster
+  host: "keycloak"
+  port: 8180
+
+# Backend service names and ports (Kubernetes service DNS names)
+backends:
+  publicApp:
+    host: "public-app"
+    port: 3000
+  aliceApp:
+    host: "alice-app"
+    port: 3002
+  bobApp:
+    host: "bob-app"
+    port: 3001
+
+# Envoy listener port
+listener:
+  port: 8080
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# Expose via NodePort for direct browser access (kind/Docker Desktop without ingress)
+nodePort:
+  enabled: false
+  port: 30080
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "postgres-jwt.fullname" . }}-init
+  labels:
+    {{- include "postgres-jwt.labels" . | nindent 4 }}
+data:
+  # Runs first: lock pg_hba.conf so only the proxy sidecar (localhost) can reach Postgres.
+  # This enforces that ALL data access must flow through the JWT proxy — no bypass possible.
+  00-hba.sh: |
+    #!/bin/sh
+    cat > "$PGDATA/pg_hba.conf" << 'EOF'
+    # pg-jwt-proxy: Postgres is only reachable from localhost (the proxy sidecar).
+    # The proxy validates the JWT before establishing this connection.
+    # All other connections are rejected — there is no way to reach Postgres without a valid token.
+    host    all    all    127.0.0.1/32    trust
+    host    all    all    ::1/128         trust
+    host    all    all    all             reject
+    EOF
+    echo "pg_hba.conf updated — only localhost (proxy sidecar) can connect"
+
+  # Runs second: create roles, schema, RLS policies, and seed data.
+  01-init.sql: |
+    -- =============================================================
+    -- Identity-Aware Database Access Demo
+    --
+    -- The JWT proxy maps token → role → RLS policy → filtered data.
+    -- Same query, different identity = different rows returned.
+    -- No application holds a database password.
+    -- =============================================================
+
+    -- Service account for the proxy. NOINHERIT is critical:
+    -- this role has zero data access until it switches to alice/bob via SET ROLE.
+    CREATE ROLE {{ .Values.auth.authenticatorUser }} NOINHERIT LOGIN PASSWORD '{{ .Values.auth.authenticatorPassword }}';
+
+    -- Per-identity roles. NOLOGIN enforces that they can only be reached
+    -- via the proxy's SET ROLE — direct login is impossible.
+    CREATE ROLE alice NOLOGIN;
+    CREATE ROLE bob NOLOGIN;
+    CREATE ROLE anon NOLOGIN;
+
+    -- Allow the proxy to switch into each role after JWT validation
+    GRANT alice TO {{ .Values.auth.authenticatorUser }};
+    GRANT bob   TO {{ .Values.auth.authenticatorUser }};
+    GRANT anon  TO {{ .Values.auth.authenticatorUser }};
+
+    -- =============================================================
+    -- Schema
+    -- =============================================================
+    CREATE SCHEMA api;
+
+    CREATE TABLE api.user_data (
+      id         SERIAL PRIMARY KEY,
+      owner      TEXT        NOT NULL,
+      content    TEXT        NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- =============================================================
+    -- Row Level Security
+    --
+    -- After SET ROLE alice, Postgres filters every query to owner='alice'.
+    -- The client sends "SELECT * FROM api.user_data" and gets back only
+    -- their rows — no application-layer filtering required.
+    -- This is the database enforcing identity, not the app.
+    -- =============================================================
+    ALTER TABLE api.user_data ENABLE ROW LEVEL SECURITY;
+
+    CREATE POLICY alice_isolation ON api.user_data
+      FOR ALL TO alice
+      USING  (owner = 'alice')
+      WITH CHECK (owner = 'alice');
+
+    CREATE POLICY bob_isolation ON api.user_data
+      FOR ALL TO bob
+      USING  (owner = 'bob')
+      WITH CHECK (owner = 'bob');
+
+    -- anon sees nothing — must present a valid JWT to get any data
+    CREATE POLICY anon_deny ON api.user_data
+      FOR ALL TO anon
+      USING (false);
+
+    -- =============================================================
+    -- Permissions
+    -- =============================================================
+    GRANT USAGE ON SCHEMA api TO alice, bob, anon;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON api.user_data TO alice, bob;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA api TO alice, bob;
+
+    -- =============================================================
+    -- Seed data
+    -- Connect as alice → see 2 rows. Connect as bob → see 2 different rows.
+    -- Same table. Same query. Identity is the only variable.
+    -- =============================================================
+    INSERT INTO api.user_data (owner, content) VALUES
+      ('alice', 'Project Alpha specification — CONFIDENTIAL'),
+      ('alice', 'Q4 budget planning notes'),
+      ('bob',   'Infrastructure runbook v2.3'),
+      ('bob',   'On-call rotation schedule');

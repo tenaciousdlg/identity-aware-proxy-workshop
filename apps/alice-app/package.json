@@ -1,0 +1,15 @@
+{
+  "name": "alice-app",
+  "version": "1.0.0",
+  "description": "Alice's personal application - only accessible by Alice",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "postgres-jwt.fullname" . }}
+  labels:
+    {{- include "postgres-jwt.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "postgres-jwt.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "postgres-jwt.selectorLabels" . | nindent 8 }}
+    spec:
+      # Fetch Keycloak's JWKS before any container starts.
+      # The proxy reads /jwks/jwks.json at startup to verify JWT signatures.
+      initContainers:
+        - name: fetch-jwks
+          image: "{{ .Values.image.jwksFetcher.repository }}:{{ .Values.image.jwksFetcher.tag }}"
+          imagePullPolicy: {{ .Values.image.jwksFetcher.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              JWKS_URL="{{ include "postgres-jwt.keycloakJwksUrl" . }}"
+              echo "Waiting for Keycloak JWKS at ${JWKS_URL}..."
+              until curl -sf "${JWKS_URL}" -o /jwks/jwks.json; do
+                echo "  not ready — retrying in 5s"
+                sleep 5
+              done
+              echo "JWKS fetched OK"
+          volumeMounts:
+            - name: jwks
+              mountPath: /jwks
+
+      containers:
+        # ── Postgres ────────────────────────────────────────────────
+        # Only reachable from localhost — pg_hba.conf (set by 00-hba.sh) rejects
+        # all external connections. The only path to data is through the proxy.
+        - name: postgres
+          image: "{{ .Values.image.postgres.repository }}:{{ .Values.image.postgres.tag }}"
+          imagePullPolicy: {{ .Values.image.postgres.pullPolicy }}
+          # args (not command) so docker-entrypoint.sh still runs init scripts.
+          # Run on internal port 5433 so the proxy can own 0.0.0.0:5432 without conflict.
+          args: ["postgres", "-c", "listen_addresses=127.0.0.1", "-c", "port={{ .Values.postgres.port }}"]
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "postgres-jwt.fullname" . }}
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", {{ .Values.postgres.database | quote }}, "-p", {{ .Values.postgres.port | quote }}]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", {{ .Values.postgres.database | quote }}, "-p", {{ .Values.postgres.port | quote }}]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+        # ── pg-jwt-proxy ─────────────────────────────────────────────
+        # Wire-protocol sidecar: speaks standard Postgres protocol to clients,
+        # validates their JWT, then connects to the real Postgres as the
+        # authenticator service account and issues SET ROLE <username>.
+        # From a client's perspective this looks exactly like a normal Postgres server.
+        - name: proxy
+          image: "{{ .Values.image.proxy.repository }}:{{ .Values.image.proxy.tag }}"
+          imagePullPolicy: {{ .Values.image.proxy.pullPolicy }}
+          env:
+            # Proxy connects to the Postgres sidecar on localhost
+            - name: POSTGRES_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "postgres-jwt.fullname" . }}
+                  key: POSTGRES_URL
+            - name: PROXY_LISTEN_ADDR
+              value: ":{{ .Values.proxy.port }}"
+            # JWKS file written by the init container — used to verify JWT signatures
+            - name: KEYCLOAK_JWKS_URL
+              value: "file:///jwks/jwks.json"
+            - name: JWT_ISSUER
+              value: {{ .Values.keycloak.issuer | quote }}
+            # JWT claim whose value becomes the Postgres role (alice/bob → RLS)
+            - name: JWT_ROLE_CLAIM
+              value: {{ .Values.proxy.roleClaim | quote }}
+          ports:
+            - name: postgres
+              containerPort: {{ .Values.proxy.port }}
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          volumeMounts:
+            - name: jwks
+              mountPath: /jwks
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "postgres-jwt.fullname" . }}-data
+        - name: init-scripts
+          configMap:
+            name: {{ include "postgres-jwt.fullname" . }}-init
+            defaultMode: 0755
+        # Shared between fetch-jwks init container (write) and proxy (read)
+        - name: jwks
+          emptyDir: {}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,19 @@
+apiVersion: v2
+name: postgres-jwt
+description: |
+  PostgreSQL with a PostgREST sidecar providing JWT-authenticated database access.
+  Apps present an OIDC Bearer token instead of a password. PostgREST validates the
+  token against Keycloak's JWKS endpoint and maps the identity to a Postgres role,
+  which is then enforced by Row Level Security policies.
+  This demonstrates the same identity-aware database access pattern that Teleport
+  provides — without any static credentials in the application.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - postgres
+  - postgrest
+  - jwt
+  - oidc
+  - zero-trust
+  - row-level-security

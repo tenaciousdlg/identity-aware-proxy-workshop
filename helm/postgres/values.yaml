@@ -1,0 +1,59 @@
+image:
+  postgres:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  # Custom wire-protocol proxy — build from postgres-proxy/ and push to your registry
+  # docker build -t <registry>/pg-jwt-proxy:latest ./postgres-proxy && docker push <registry>/pg-jwt-proxy:latest
+  proxy:
+    repository: ""
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  # Init container that fetches Keycloak's JWKS — proxy reads it on startup
+  jwksFetcher:
+    repository: curlimages/curl
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+keycloak:
+  # Internal cluster service URL — adjust to match your Keycloak release name
+  # e.g. if you ran: helm install kc <chart>, the URL is http://kc-keycloak:8180
+  url: "http://keycloak:8180"
+  realm: "demo"
+  # Optional: validate the iss claim in JWTs. Should match the URL clients used to authenticate.
+  # Leave empty to skip issuer validation (fine for demos behind a single cluster).
+  issuer: ""
+
+postgres:
+  database: "app"
+  # Internal port Postgres listens on (within the pod). Kept off 5432 so the
+  # proxy sidecar can own 0.0.0.0:5432 without conflicting with Postgres.
+  port: 5433
+  storage: "1Gi"
+  # Empty = use cluster default StorageClass (works out of the box on kind/Docker Desktop)
+  storageClassName: ""
+
+proxy:
+  # Port the JWT proxy listens on — this is what clients connect to
+  port: 5432
+  # Which JWT claim maps to a Postgres role (and drives Row Level Security)
+  roleClaim: "preferred_username"
+
+auth:
+  # PostgREST/proxy service account — connects to Postgres, then switches roles via SET ROLE.
+  # NOINHERIT means this user has no data access of its own.
+  authenticatorUser: "authenticator"
+  # Postgres is configured to trust localhost connections (proxy sidecar only)
+  # so this password is only used if pg_hba.conf requires it.
+  authenticatorPassword: "changeme-authenticator"
+  superuserPassword: "changeme-postgres"
+
+service:
+  type: ClusterIP
+  # Exposes the Postgres wire protocol — apps connect with a standard pg driver + JWT as password
+  port: 5432
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
