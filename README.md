@@ -148,7 +148,7 @@ ALICE_TOKEN=$(curl -s http://localhost:8180/realms/demo/protocol/openid-connect/
   | jq -r .access_token)
 
 # Decode the payload — no signature verification, just base64
-echo $ALICE_TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq .
+echo $ALICE_TOKEN | jq -R 'split(".")[1] | @base64d | fromjson'
 ```
 
 Key claims to find:
