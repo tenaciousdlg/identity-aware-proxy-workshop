@@ -117,29 +117,38 @@ Keycloak is pre-configured with:
 helm install public-app helm/public-app
 helm install alice-app  helm/alice-app
 helm install bob-app    helm/bob-app
+kubectl wait deployment/public-app deployment/alice-app deployment/bob-app \
+  --for=condition=Available --timeout=90s
 ```
 
-### Step 4: Deploy Envoy
+### Step 4: Deploy Envoy and start port-forwards
 
 ```bash
 helm install envoy helm/envoy
+kubectl wait deployment/envoy --for=condition=Available --timeout=60s
+
+# Expose Keycloak and Envoy to your laptop
+kubectl port-forward svc/keycloak 8180:8180 &
 kubectl port-forward svc/envoy 8080:8080 &
 ```
+
+### Step 5: Verify the setup
+
+```bash
+bash scripts/smoke-test.sh
+```
+
+All 13 assertions should pass before proceeding to the exercises.
 
 ---
 
 ## Lab Exercises
 
-These map to the workshop agenda. Complete Steps 1–4 above before starting.
+These map to the workshop agenda. Complete Steps 1–5 above before starting.
 
 ---
 
 ### Part 2: Decode a JWT (OAuth2/OIDC hands-on)
-
-Port-forward Keycloak so you can reach it from your laptop:
-```bash
-kubectl port-forward svc/keycloak 8180:8180 &
-```
 
 Authenticate as alice and inspect the token:
 ```bash
@@ -240,6 +249,7 @@ The Postgres chart deploys a sidecar proxy that accepts standard `psql` connecti
 
 ```bash
 helm install db helm/postgres
+kubectl wait deployment/db-postgres-jwt --for=condition=Available --timeout=90s
 ```
 
 ### Test
